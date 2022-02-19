@@ -1,5 +1,5 @@
 # wl_graphics_re-export
-High resolution images re-exported from old Widelands models
+High resolution images re-exported from old [Widelands](https://github.com/widelands/widelands) models
 
 None of the original work is by me. All Blender models and some of the Blender Python scripts are from the [Widelands Media repository on Launchpad](https://code.launchpad.net/widelands-media). All image files are derived works of the Blender models.
 
