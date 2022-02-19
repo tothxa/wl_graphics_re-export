@@ -34,7 +34,13 @@ Some models are incompatible even with 2.79. The problems I saw so far:
 
 Fortunately Blender has an archive of all old releases
 [here](https://download.blender.org/release/). I found it easiest to use the
-w.ndows builds in wine.
+w.ndows builds in wine. It even works from the console (no X running) with
+environment variables, e.g.:
+```
+SCALE=7 wine /path/to/blender.exe -b building.blend -P render_settings_b249.py -o building -f 1
+```
+(However Blender 2.49- didn't load scripts from other directories, like
+`-P ../script.py`, not even the native build.)
 
 ### Spritesheets
 As opposed to `wl_create_spritesheet`, my scaling scripts keep the cropping
