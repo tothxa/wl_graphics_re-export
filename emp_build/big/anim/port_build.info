@@ -1,0 +1,8 @@
+IMGSIZE=1000 SCALE=15 blender -b port.blend -P ~/src/wl_blender/tools/render_settings.py \
+   $(for i in $(seq 0 3); do
+      echo -S Build.00$i -o port_b_0$i -f 1 ; \
+   done) \
+   -P ~/src/wl_blender/tools/playercolours.py \
+   $(for i in $(seq 0 3); do
+      echo -S Build.00$i -o port_b_0${i}_pc -f 1 ; \
+   done)

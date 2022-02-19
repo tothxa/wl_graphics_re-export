@@ -1,0 +1,5 @@
+XOFFSET=-0.05
+
+# Playercolours were rendered with Blender 2.49 because newer masking algorithm
+# didn't mask everything. Main images were rendered with Blender 2.79 though.
+# See scouts_house_b249_0001.png for differences.
