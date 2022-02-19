@@ -45,3 +45,29 @@ of all the scaled mipmaps in sync, and always leave an empty border of
 I have found that using more columns than rows of the animation steps
 improves PNG compression by **a lot**. (EXAMPLE SIZE COMPARISON NEEDED HERE)
 
+### Antialiasing
+I try to use filters that cause minimal blurring. I have found that it gives
+better results to use antialiasing in Blender too for creating the initial
+high resolution rendered images. This could probably be disabled if I used
+at least 12x scaled "originals" (3x scale, ie. 9x oversampling at the max
+in-game scale of 4), but Blender has more information internally, and uses
+higher quality sampling. See:
+https://docs.blender.org/manual/ja/2.79/render/blender_render/settings/antialiasing.html
+
+Now I aim for about 6x (1.5x 4), so I use 1000x1000 pixels for big buildings,
+800x800 for medium and 600x600 for small. I expect that the original 400x400
+will be fine for workers and animals.
+
+I use the Mitchell-Netravali filter in Blender (see above link for a
+demonstration of various filters) when I can, but I couldn't figure out how
+to choose it in 2.49- from Python. It's there in the dialog, but the API
+reference doesn't mention it, and I can't see console output like in 2.79.
+*Any help would be kindly appreciated.*
+
+For the in-game mipmap scales I use the Catmull-Rom (`catrom`) filter in
+GraphicsMagick, to minimise further blurring. The resulting images at scale
+1 are slightly more blurred than the old ones, but the old ones sometimes
+have aliasing issues or stepped edges. Scales 2 and 4 are nice, sharp and
+still antialiased with this process. (Scale 0.5 looks good too, but that's
+so small that almost anything goes for it.)
+
