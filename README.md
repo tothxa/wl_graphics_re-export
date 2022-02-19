@@ -23,3 +23,5 @@ Fortunately Blender has an archive of all old releases [here](https://download.b
 
 ### Spritesheets
 As opposed to `wl_create_spritesheet`, my scaling scripts keep the cropping of all the scaled mipmaps in sync, and always leave an empty border of 1 pixel at the lowest scale to prevent bleeding over of scaling artifacts. (EXAMPLE SCREENSHOT NEEDED HERE)
+
+I have found that using more columns than rows of the animation steps improves PNG compression by **a lot**. (EXAMPLE SIZE COMPARISON NEEDED HERE)
