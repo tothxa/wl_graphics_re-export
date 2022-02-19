@@ -1,27 +1,47 @@
 # wl_graphics_re-export
-High resolution images re-exported from old [Widelands](https://github.com/widelands/widelands) models
+High resolution images re-exported from old
+[Widelands](https://github.com/widelands/widelands) models
 
-None of the original work is by me. All Blender models and some of the Blender Python scripts are from the [Widelands Media repository on Launchpad](https://code.launchpad.net/widelands-media). All image files are derived works of the Blender models.
+None of the original work is by me. All Blender models and some of the Blender
+Python scripts are from the [Widelands Media repository on
+Launchpad](https://code.launchpad.net/widelands-media). All image files are
+derived works of the Blender models.
 
-I am to blame however for all the ugly shell and AWK scripts. I'll try to redo them in Python eventually, but that's no guarantee that they will be any less ugly.
+I am to blame however for all the ugly shell and AWK scripts. I'll try to redo
+them in Python eventually, but that's no guarantee that they will be any less
+ugly.
 
-I include the `.blend` models to show which version I used to render the images. Some of them are re-saved with minor adjustments. I tried to indicate that in the filenames. Some models have an accompanying `.info` file (plain text), where I put some notes and reminders on what settings I used for rendering, or what I had to tweak.
+I include the `.blend` models to show which version I used to render the
+images. Some of them are re-saved with minor adjustments. I tried to indicate
+that in the filenames. Some models have an accompanying `.info` file (plain
+text), where I put some notes and reminders on what settings I used for
+rendering, or what I had to tweak.
 
 ## Background information
 
 ### Blender versions
 I first try to render all models in Blender 2.79 (on Debian buster).
 
-Blender 2.8+ dropped support for the blender_internal rendering engine, so all textures need converting, and all lights give very different results than old Blender versions, both with Eevee and with Cycles. Fixing this is way beyond my (non-existing) knowledge of Blender.
+Blender 2.8+ dropped support for the blender_internal rendering engine, so all
+textures need converting, and all lights give very different results than old
+Blender versions, both with Eevee and with Cycles. Fixing this is way beyond
+my (non-existing) knowledge of Blender.
 
 Some models are incompatible even with 2.79. The problems I saw so far:
 - particle effects: this sometimes results in glowing volume regions
 - displaced geometry
 - weird differences in animations
 
-Fortunately Blender has an archive of all old releases [here](https://download.blender.org/release/). I found it easiest to use the w.ndows builds in wine.
+Fortunately Blender has an archive of all old releases
+[here](https://download.blender.org/release/). I found it easiest to use the
+w.ndows builds in wine.
 
 ### Spritesheets
-As opposed to `wl_create_spritesheet`, my scaling scripts keep the cropping of all the scaled mipmaps in sync, and always leave an empty border of 1 pixel at the lowest scale to prevent bleeding over of scaling artifacts. (EXAMPLE SCREENSHOT NEEDED HERE)
+As opposed to `wl_create_spritesheet`, my scaling scripts keep the cropping
+of all the scaled mipmaps in sync, and always leave an empty border of
+1 pixel at the lowest scale to prevent bleeding over of scaling artifacts.
+(EXAMPLE SCREENSHOT NEEDED HERE)
 
-I have found that using more columns than rows of the animation steps improves PNG compression by **a lot**. (EXAMPLE SIZE COMPARISON NEEDED HERE)
+I have found that using more columns than rows of the animation steps
+improves PNG compression by **a lot**. (EXAMPLE SIZE COMPARISON NEEDED HERE)
+
