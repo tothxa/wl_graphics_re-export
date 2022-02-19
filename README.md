@@ -14,8 +14,8 @@ ugly.
 I include the `.blend` models to show which version I used to render the
 images. Some of them are re-saved with minor adjustments. I tried to indicate
 that in the filenames. Some models have an accompanying `.info` file (plain
-text), where I put some notes and reminders on what settings I used for
-rendering, or what I had to tweak.
+text), where I put some notes and reminders on what non-default settings I
+used for rendering, or what I had to tweak.
 
 ## Background information
 
@@ -40,7 +40,7 @@ environment variables, e.g.:
 SCALE=7 wine /path/to/blender.exe -b building.blend -P render_settings_b249.py -o building -f 1
 ```
 (However Blender 2.49- didn't load scripts from other directories, like
-`-P ../script.py`, not even the native build.)
+`-P ../script.py`, not even the official Debian build in a squeeze chroot.)
 
 ### Spritesheets
 As opposed to `wl_create_spritesheet`, my scaling scripts keep the cropping
