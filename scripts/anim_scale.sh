@@ -8,6 +8,7 @@ if [ $# -lt 2 ]; then
   exit 1
 fi
 
+echo "Size at scale 1: $1"
 SIZEHALF=$(($1 / 2))
 shift
 
@@ -59,9 +60,11 @@ OFF_X=$(($(echo $CROP | cut -d ' ' -f 4) - 1))
 OFF_Y=$(($(echo $CROP | cut -d ' ' -f 7) - 1))
 
 for SC in 0.5 1 2 4 ; do
+  CROP_GEOM=${CR_W}x${CR_H}+${OFF_X}+${OFF_Y}
+  echo "Scale: $SC     Crop geometry: $CROP_GEOM"
   for TF in ${TMP}/*_${SC}.png ; do
     SCF=${DIR}/$(basename "$TF")
-    convert $TF -crop ${CR_W}x${CR_H}+${OFF_X}+${OFF_Y} $SCF
+    convert $TF -crop $CROP_GEOM $SCF
   done
 
   CR_W=$(($CR_W * 2))

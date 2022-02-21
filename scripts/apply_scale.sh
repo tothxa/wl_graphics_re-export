@@ -24,8 +24,10 @@ TMPF=${TMP}/$(basename "$FN")
 W=$(($2 / 2))
 
 if [ $# -eq 3 ]; then
+  echo "Size at scale 1: ${2}x$3"
   H=$(($3 / 2))
 else
+  echo "Size at scale 1: $2"
   H=$W
 fi
 
@@ -55,7 +57,9 @@ for SC in 0.5 1 2 4 ; do
     OFF_X=$(($OFF_X * 2))
     OFF_Y=$(($OFF_Y * 2))
   fi
-  convert $TF -crop ${CR_W}x${CR_H}+${OFF_X}+${OFF_Y} $SCF
+  CROP_GEOM=${CR_W}x${CR_H}+${OFF_X}+${OFF_Y}
+  echo "Scale: $SC     Crop geometry: $CROP_GEOM"
+  convert $TF -crop $CROP_GEOM $SCF
 
   W=$(($W * 2))
   H=$(($H * 2))
