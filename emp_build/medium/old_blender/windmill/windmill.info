@@ -1,0 +1,4 @@
+XOFFSET=0.05 SCALE=6.7
+
+# frame 20 is actually identical with frame 01, so there's a break in the
+# animation when played continuously, so we don't use it
