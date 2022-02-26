@@ -46,7 +46,11 @@ if [ $# -gt 1 -a "${CROP%% *}" != "Common:" ]; then
   exit 1
 fi
 
-for MARG in $(echo $CROP | cut -d  ' ' -f 4,6,7,9); do
+read IGN_NAME IGN_TOT_W IGN_TOT_H MARG_LEFT WIDTH MARG_RIGHT MARG_TOP HEIGHT MARG_BOTTOM <<EOF
+$CROP
+EOF
+
+for MARG in $MARG_LEFT $MARG_RIGHT $MARG_TOP $MARG_BOTTOM ; do
   if [ $MARG = 0 ]; then
     echo "Too small margin found:"
     echo "   $CROP"
@@ -54,10 +58,10 @@ for MARG in $(echo $CROP | cut -d  ' ' -f 4,6,7,9); do
   fi
 done
 
-CR_W=$(($(echo $CROP | cut -d ' ' -f 5) + 2))
-CR_H=$(($(echo $CROP | cut -d ' ' -f 8) + 2))
-OFF_X=$(($(echo $CROP | cut -d ' ' -f 4) - 1))
-OFF_Y=$(($(echo $CROP | cut -d ' ' -f 7) - 1))
+CR_W=$(($WIDTH + 2))
+CR_H=$(($HEIGHT + 2))
+OFF_X=$(($MARG_LEFT - 1))
+OFF_Y=$(($MARG_TOP - 1))
 
 for SC in 0.5 1 2 4 ; do
   CROP_GEOM=${CR_W}x${CR_H}+${OFF_X}+${OFF_Y}
