@@ -3,7 +3,7 @@
 if [ $# != 2 ]; then
   echo "Usage: $0 <animation_name> <basename>"
   echo
-  echo "  Basename is the name of the scaled images without  the scale and the"
+  echo "  Basename is the name of the scaled images without the scale and the"
   echo "  extension."
   echo "  Images must be named <basename>_<scale>.png"
   echo "  Output files will be <animation_name>_1x1_<scale>.png"
