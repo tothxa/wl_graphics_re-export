@@ -1,0 +1,1 @@
+for i in horse_walk_*.png ; do convert $i -roll -12+34 /tmp/r_$i ; done
