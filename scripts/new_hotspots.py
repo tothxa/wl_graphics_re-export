@@ -87,6 +87,11 @@ lua.execute('''
       "worker" } do
     descriptions["new_"..type.."_type"] = descriptions.new
   end
+
+  wl = {}
+  function wl.Descriptions()
+    return descriptions
+  end
 ''')
 
 def parse_inits(dir) :

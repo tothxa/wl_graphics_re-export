@@ -36,6 +36,11 @@ for i, type in ipairs { "constructionsite", "dismantlesite", "militarysite", "pr
   descriptions["new_"..type.."_type"] = descriptions.new
 end
 
+wl = {}
+function wl.Descriptions()
+  return descriptions
+end
+
 local skip_chars = 0
 
 function do_dir(dir)
