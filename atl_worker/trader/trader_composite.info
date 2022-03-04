@@ -1,0 +1,16 @@
+for i in `seq -w 10` ; do convert -size 800x800 xc:transparent -draw "image Over 164,138 0,0 scout_walk_w_00${i}.png" -draw "image Over 299,108 0,0 horse_walk_w_00${i}.png" trader_walk_w_00${i}.png ; done
+for i in `seq -w 10` ; do convert -size 800x800 xc:transparent -draw "image Over 123,80 0,0 horse_walk_e_00${i}.png" -draw "image Over 340,166 0,0 scout_walk_e_00${i}.png" trader_walk_e_00${i}.png ; done
+for i in `seq -w 10` ; do convert -size 800x800 xc:transparent -draw "image Over 291,68 0,0 horse_walk_sw_00${i}.png" -draw "image Over 172,178 0,0 scout_walk_sw_00${i}.png" trader_walk_sw_00${i}.png ; done
+for i in `seq -w 10` ; do convert -size 800x800 xc:transparent -draw "image Over 166,48 0,0 horse_walk_se_00${i}.png" -draw "image Over 297,198 0,0 scout_walk_se_00${i}.png" trader_walk_se_00${i}.png ; done
+for i in `seq -w 10` ; do convert -size 800x800 xc:transparent -draw "image Over 207,106 0,0 scout_walk_nw_00${i}.png" -draw "image Over 256,140 0,0 horse_walk_nw_00${i}.png" trader_walk_nw_00${i}.png ; done
+for i in `seq -w 10` ; do convert -size 800x800 xc:transparent -draw "image Over 332,126 0,0 scout_walk_ne_00${i}.png" -draw "image Over 131,120 0,0 horse_walk_ne_00${i}.png" trader_walk_ne_00${i}.png ; done
+
+# only NW has horse over playercolour
+for i in `seq -w 10` ; do convert horse_walk_nw_00${i}.png -channel Opacity -threshold 30 -transparent white horse_walk_pc_nw_00${i}.png ; done
+for i in `seq -w 10` ; do convert -size 800x800 xc:black -draw "image Over 207,106 0,0 scout_walk_pc_nw_00${i}.png" -draw "image Over 256,140 0,0 horse_walk_pc_nw_00${i}.png" trader_walk_pc_nw_00${i}.png ; done
+
+for i in `seq -w 10` ; do convert -size 800x800 xc:black -draw "image Over 164,138 0,0 scout_walk_pc_w_00${i}.png" trader_walk_pc_w_00${i}.png ; done
+for i in `seq -w 10` ; do convert -size 800x800 xc:black -draw "image Over 340,166 0,0 scout_walk_pc_e_00${i}.png" trader_walk_pc_e_00${i}.png ; done
+for i in `seq -w 10` ; do convert -size 800x800 xc:black -draw "image Over 172,178 0,0 scout_walk_pc_sw_00${i}.png" trader_walk_pc_sw_00${i}.png ; done
+for i in `seq -w 10` ; do convert -size 800x800 xc:black -draw "image Over 297,198 0,0 scout_walk_pc_se_00${i}.png" trader_walk_pc_se_00${i}.png ; done
+for i in `seq -w 10` ; do convert -size 800x800 xc:black -draw "image Over 332,126 0,0 scout_walk_pc_ne_00${i}.png" trader_walk_pc_ne_00${i}.png ; done
