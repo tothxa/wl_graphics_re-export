@@ -1,1 +1,1 @@
-IMGSIZE=400 ANG_SE=-90 XOFFSET=0.045 YOFFSET=0.06 SCALE=1.7 blender -b scout_walk.blend -P render_settings.py -o scout_walk -P walkdirs.py
+IMGSIZE=400 XOFFSET=0.045 YOFFSET=0.06 SCALE=1.7 blender -b scout_walk.blend -P render_settings.py -o scout_walk -P walkdirs.py
