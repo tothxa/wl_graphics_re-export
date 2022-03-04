@@ -23,7 +23,8 @@ out = bpy.context.scene.render.filepath
 # SW and NW, so we keep to that.
 # "SE" seems to be the base direction in Widelands -- makes sense, because
 # of the orientation of buildings.
-# @#$! blender uses angles backwards???
+# We're rotating the lights and the camera around the model, so angles are
+# backwards.
 for (n, a) in [("_se_", 0), ("_e_", -45), ("_ne_", -90), ("_nw_", 180), ("_w_", 135), ("_sw_", 90)] :
   bpy.data.objects['MainLightControl'].rotation_euler.z = (base_angle + a) * math.pi / 180
   bpy.context.scene.render.filepath = out + n
