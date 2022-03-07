@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import io
 import os
 import re
 import sys
@@ -88,10 +89,11 @@ lua.execute('''
   end
 
   typemap = {}
+  sizemap = {}
 
   descriptions = {}
+  items = { static = {}, moving = {}, ships = {}, unknown = {} }
 
-  static_items = {}
   function descriptions:new_static(def)
     sz = def.size
     if sz == "medium" or sz == "mine" or sz == "none" then
@@ -100,19 +102,20 @@ lua.execute('''
     if sz == "port" then
       sz = "big"
     end
-    static_items[def.name] = { size = sz, imgs = parse_anims(def) }
+    items.static[def.name] = { old = parse_anims(def) }
+    sizemap[def.name] = sz
     typemap[def.name] = "static"
   end
 
   moving_items = {}
   function descriptions:new_moving(def)
-    moving_items[def.name] = { parse_anims(def) }
+    items.moving[def.name] = { old = parse_anims(def) }
     typemap[def.name] = "moving"
   end
   
   ships = {}
-  function descriptions:new_ship(def)
-    ships[def.name] = { parse_anims(def) }
+  function descriptions:new_ship_type(def)
+    items.ships[def.name] = { old = parse_anims(def) }
     typemap[def.name] = "ship"
   end
 
@@ -125,27 +128,9 @@ lua.execute('''
     descriptions["new_"..type.."_type"] = descriptions.new_moving
   end
 
-  descriptions["new_ship_type"] = descriptions.new_ship
-
   wl = {}
   function wl.Descriptions()
     return descriptions
-  end
-
-  function get_anim(name, anim)
-    t = typemap[name]
-    if t == nil then
-      return nil
-    end
-    if t == "static" then
-      return static_items[name].imgs[anim]
-    end
-    if t == "moving" then
-      return moving_items[name][anim]
-    end
-    if t == "ships" then
-      return ships[name][anim]
-    end
   end
 ''')
 
@@ -158,12 +143,74 @@ def parse_inits(dir) :
 
 parse_inits(sys.argv[1])
 
-def new_hot_1(old_size, old_off, old_hot, new_size, new_off) :
+items = lua.eval("items")
+typemap = lua.eval("typemap")
+sizemap = lua.eval("sizemap")
+
+def get_anim(name, which, anim) :
+  t = typemap[name]
+  if t == None :
+    return None
+  if not t in items :
+    return None
+  if not name in items[t] :
+    return None
+  if not which in items[t][name] :
+    return None
+  if not anim in items[t][name][which] :
+    return None
+  return items[t][name][which][anim]
+
+def get_new(name, anim) :
+  # we need this because we don't want to use different hotspots for the
+  # animations of the new spritesheets, but the cropping may be different
+  a = get_anim(name, "pre", anim)
+  if a == None :
+    return None
+
+  rv = a.copy()
+  # this is safe, because .new is always created with .pre
+  rv.hot_x = items[typemap[name]].new.hot_x
+  rv.hot_y = items[typemap[name]].new.hot_y
+  return rv
+
+def has_new(name) :
+  t = typemap[name]
+  if t == None :
+    return False
+  if not name in items[t] :
+    return False
+  return "new" in items[t][name]
+
+def set_new_hotspot(name, hotspot) :
+  # this should only be called when we already have an entry for the new
+  # spritesheet
+  items[typemap[name]][name].new = hotspot
+
+def store_new(name, anim, imgprops_pre, hotspot_new) :
+  t = typemap[name]
+  if t == None :
+    t = "unknown"
+  if not name in items[t] :
+    items[t][name] = lua.table()
+
+  if not "pre" in items[t][name] :
+    items[t][name].pre = lua.table()
+  # must create pre[anim]
+  items[t][name].pre[anim] = imgprops_pre
+
+  if not "new" in items[t][name] :
+    # new ones shouldn't have different hotspots, first call stores it,
+    # others give the same numbers, so we just ignore it
+    items[t][name].new = hotspot_new
+
+def pre_hot_1(old_size, old_off, old_hot, new_size, new_off) :
   return new_off + (old_hot - old_off) * new_size / old_size
 
 fnparse = re.compile("([a-z_]+)_(idle|working|build|unoccupied|empty)_([0-9]+)x([0-9]+)_1\.png")
+hsparse = re.compile("^([0-9]*),([0-9]*)$")
 
-def new_hotspot(dir, fn) :
+def new_hotspot_init(dir, fn) :
   fnmatch = fnparse.match(fn)
   if fnmatch == None :
     return None
@@ -173,22 +220,46 @@ def new_hotspot(dir, fn) :
   cols = int(fnmatch.group(3))
   rows = int(fnmatch.group(4))
 
-  old = lua.eval('get_anim("{}", "{}")'.format(item, anim))
+  pre = size_and_crop_full(dir + "/" + fn, cols, rows)
+
+  # old = lua.eval('get_anim("{}", "{}")'.format(item, anim))
+  old = get_anim(item, "old", anim)
   if not old :
     print("Animation not found: ", item, anim, file = sys.stderr)
-    return None
-  new = size_and_crop_full(dir + "/" + fn, cols, rows)
+    pre.hot_x = None
+    pre.hot_y = None
+  else :
+    hot_x = pre_hot_1(old.x, old.xoff, old.hot_x, pre.x, pre.xoff)
+    hot_y = pre_hot_1(old.y, old.yoff, old.hot_y, pre.y, pre.yoff)
+    pre.hot_x = round(hot_x)
+    pre.hot_y = round(hot_y)
+    # print("{:s} {:s} {:1.0f},{:1.0f}".format(item, anim, hot_x, hot_y))
 
-  hot_x = new_hot_1(old.x, old.xoff, old.hot_x, new.x, new.xoff)
-  hot_y = new_hot_1(old.y, old.yoff, old.hot_y, new.y, new.yoff)
-  print("{:s} {:s} {:1.0f},{:1.0f}".format(item, anim, hot_x, hot_y))
+  new = None
+  if not has_new(item) :
+    hotspotfile = dir + "/" + fnmatch.group(1) + ".hotspot"
+    # file_ok means we can safely create it or replace first line with hotspot value
+    new = lua.table(hsfile = hotspotfile, hot_x = None, hot_y = None, file_ok = True)
+    hss = ""
+    if os.access(hotspotfile, os.F_OK) :
+      hsf = open(hotspotfile)
+      hss = hsf.readline()
+      hsf.close()
+    hsmatch = hsparse.match(hss)
+    if hsmatch :
+      new.hot_x = int(hsmatch.group(1))
+      new.hot_y = int(hsmatch.group(2))
+    elif hss != "" and hss != "\n" :
+      new.file_ok = False
+
+  store_new(item, anim, pre, new)
 
 def do_new(dir) :
   for entry in os.scandir(dir) :
     if entry.is_dir() :
       do_new(entry.path)
     else :
-      new_hotspot(dir, entry.name)
+      new_hotspot_init(dir, entry.name)
 
 do_new(sys.argv[2])
 
@@ -197,4 +268,5 @@ import ctypes
 import sdl2
 import sdl2.sdlimage
 import sdl2.sdlttf
+
 
