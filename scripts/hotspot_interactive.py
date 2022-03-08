@@ -37,6 +37,9 @@ def size_and_crop_base(basename, cols, rows) :
     imgf = basename + "_00.png"
   return size_and_crop_full(imgf, cols, rows)
 
+
+#################### lua code for reading old definitions ####################
+
 lua.execute('''
   function ignore() end
   pop_textdomain = ignore
@@ -133,6 +136,10 @@ lua.execute('''
     return descriptions
   end
 ''')
+### end of lua definitions ###
+
+
+###################### read all spritesheet definitions ######################
 
 def parse_inits(dir) :
   for entry in os.scandir(dir) :
@@ -263,10 +270,123 @@ def do_new(dir) :
 
 do_new(sys.argv[2])
 
+
+############################# prepare for display #############################
+
 import ctypes
 
 import sdl2
 import sdl2.sdlimage
 import sdl2.sdlttf
 
+if sdl2.SDL_Init(sdl2.SDL_INIT_VIDEO) < 0 :
+  print("SDL initialisation failed.")
+  sys.exit(1)
+
+canvas_w = 800
+canvas_h = 660
+margin = 10
+trianglew = 64
+triangleh = 32
+
+background = sdl2.SDL_CreateRGBSurface(0, canvas_w, canvas_h, 24, 0, 0, 0, 0)
+if not background :
+  print("Background surface creation failed.")
+  sys.exit(1)
+
+background_renderer = sdl2.SDL_CreateSoftwareRenderer(background)
+if not background_renderer :
+  print("Background renderer creation failed.")
+  sys.exit(1)
+
+sdl2.SDL_SetRenderDrawColor(background_renderer, 0, 120, 0, 255)
+sdl2.SDL_RenderFillRect(background_renderer, None)
+
+sdl2.SDL_SetRenderDrawColor(background_renderer, 0, 0, 0, 255)
+for even in (0, triangleh) :
+  for y in range(margin + even, canvas_h - margin, trianglew) :
+    for x in range(margin + even, canvas_w - margin, trianglew) :
+      sdl2.SDL_RenderDrawPoint(background_renderer, x, y)
+
+if sdl2.sdlimage.IMG_Init(sdl2.sdlimage.IMG_INIT_PNG) < 0 :
+  print("SDL Image initialisation failed.")
+  sys.exit(1)
+
+scriptdir = os.path.dirname(sys.argv[0])
+
+def load_overlay_image(imgname) :
+  imgname_b = os.path.join(scriptdir, "imgs", imgname).encode()
+  imgsurf = sdl2.sdlimage.IMG_Load(imgname_b)
+  if imgsurf :
+    sdl2.SDL_SetSurfaceBlendMode(imgsurf, sdl2.SDL_BLENDMODE_BLEND)
+  else :
+    print("Couldn't load " + imgname)
+    sys.exit(1)
+  return imgsurf
+
+def get_positions(hot_x, hot_y, step_x, step_y) :
+  def first_pos(hotspot_coord) :
+    # '- 1' before '//' so that we don't have to special case '% trianglew == 0';
+    # '+ 1' at the end is to compensate for off-by-one difference with Widelands
+    return margin + ((hotspot_coord - margin - 1) // trianglew + 1) * trianglew + 1
+
+  x1 = first_pos(hot_x)
+  y1 = first_pos(hot_y)
+  if x1 % trianglew >= triangleh and y1 % trianglew >= triangleh :
+    x1 -= triangleh
+    y1 -= triangleh
+
+  return [[x, y] for y in range(y1, (canvas_h + hot_y - step_y), step_y)
+                 for x in range(x1, (canvas_w + hot_x - step_x), step_x)]
+
+# Sorry, lua tables are so much easier than python dicts. :)
+# OOP is not my thing either.
+#
+# The road overlays were created with graphicsmagick, because SDL doesn't
+# support drawing thick lines. As there's no direct interface between pgmagick
+# and PySDL2, it's easier to use pre-created files than to recreate them on
+# each run.
+overlays = lua.eval('''
+  { small =
+    { hotspot = {x = 75, y = 100},
+      step = {x = 128, y = 128},
+      imgsurf = python.eval('load_overlay_image("road_small.png")')
+    },
+    big =
+    { hotspot = {x = 141, y = 167},
+      step = {x = 256, y = 192},
+      imgsurf = python.eval('load_overlay_image("road_big.png")')
+    },
+  }
+''')
+
+for ovl in ["small", "big"] :
+  o = overlays[ovl]
+  o.poslist = get_positions(o.hotspot.x, o.hotspot.y, o.step.x, o.step.y)
+
+### TODO: carrier and flag overlays
+
+canvas = sdl2.SDL_CreateRGBSurface(0, canvas_w, canvas_h, 24, 0, 0, 0, 0)
+if not canvas :
+  print("Canvas surface creation failed.")
+  sys.exit(1)
+
+def place_images(base_overlay, images) :
+  sdl2.SDL_BlitSurface(background, None, canvas, None)
+  for i in range (len(images)) :
+    dst = sdl2.SDL_Rect(
+            x = base_overlay.poslist[i][0] - base_overlay.hotspot.x,
+            y = base_overlay.poslist[i][1] - base_overlay.hotspot.y,
+            w = base_overlay.imgsurf.contents.w,
+            h = base_overlay.imgsurf.contents.h)
+    sdl2.SDL_BlitSurface(base_overlay.imgsurf, None, canvas, dst)
+    dst = sdl2.SDL_Rect(
+            x = base_overlay.poslist[i][0] - images[i].hotspot.x,
+            y = base_overlay.poslist[i][1] - images[i].hotspot.y,
+            w = images[i].imgsurf.contents.w,
+            h = images[i].imgsurf.contents.h)
+    sdl2.SDL_BlitSurface(images[i].imgsurf, None, canvas, dst)
+
+print(overlays.small.poslist)
+print(overlays.big.poslist)
 
