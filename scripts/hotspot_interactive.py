@@ -285,7 +285,7 @@ if sdl2.SDL_Init(sdl2.SDL_INIT_VIDEO) < 0 :
 
 canvas_w = 800
 canvas_h = 660
-margin = 10
+margin = 15
 trianglew = 64
 triangleh = 32
 
@@ -366,6 +366,8 @@ for ovl in ["small", "big"] :
 
 ### TODO: carrier and flag overlays
 
+# Intermediate SDL surface where we do all the drawing. Will be blitted to
+# main window with possibility to scale and pan.
 canvas = sdl2.SDL_CreateRGBSurface(0, canvas_w, canvas_h, 24, 0, 0, 0, 0)
 if not canvas :
   print("Canvas surface creation failed.")
@@ -373,20 +375,83 @@ if not canvas :
 
 def place_images(base_overlay, images) :
   sdl2.SDL_BlitSurface(background, None, canvas, None)
-  for i in range (len(images)) :
+  for i in range(min(len(images), len(base_overlay.poslist))) :
     dst = sdl2.SDL_Rect(
             x = base_overlay.poslist[i][0] - base_overlay.hotspot.x,
             y = base_overlay.poslist[i][1] - base_overlay.hotspot.y,
             w = base_overlay.imgsurf.contents.w,
             h = base_overlay.imgsurf.contents.h)
     sdl2.SDL_BlitSurface(base_overlay.imgsurf, None, canvas, dst)
+    src = sdl2.SDL_Rect(
+            x = 0,
+            y = 0,
+            w = images[i].xoff + images[i].x,
+            h = images[i].yoff + images[i].y)
     dst = sdl2.SDL_Rect(
-            x = base_overlay.poslist[i][0] - images[i].hotspot.x,
-            y = base_overlay.poslist[i][1] - images[i].hotspot.y,
-            w = images[i].imgsurf.contents.w,
-            h = images[i].imgsurf.contents.h)
-    sdl2.SDL_BlitSurface(images[i].imgsurf, None, canvas, dst)
+            x = base_overlay.poslist[i][0] - images[i].hot_x,
+            y = base_overlay.poslist[i][1] - images[i].hot_y,
+            w = 0,
+            h = 0)
+    sdl2.SDL_BlitSurface(images[i].imgsurf, src, canvas, dst)
 
-print(overlays.small.poslist)
-print(overlays.big.poslist)
+# print(overlays.small.poslist)
+# print(overlays.big.poslist)
+
+
+############################## display window ##############################
+
+main_window = sdl2.SDL_CreateWindow(b"Test Hotspots",
+  sdl2.SDL_WINDOWPOS_UNDEFINED, sdl2.SDL_WINDOWPOS_UNDEFINED,
+  canvas_w, canvas_h, sdl2.SDL_WINDOW_SHOWN)
+if not main_window :
+  print("Couldn't create main window.")
+  sys.exit(1)
+mainw_surf = sdl2.SDL_GetWindowSurface(main_window)
+
+def redraw() :
+  # TODO: scale and pan
+  #       also fill with gray when window is bigger than scaled canvas
+  sdl2.SDL_BlitSurface(canvas, None, mainw_surf, None)
+  sdl2.SDL_UpdateWindowSurface(main_window)
+
+def fetch_image(item) :
+  if not item.imgsurf:
+    imgsurf = sdl2.sdlimage.IMG_Load(item.file.encode())
+    if imgsurf :
+      sdl2.SDL_SetSurfaceBlendMode(imgsurf, sdl2.SDL_BLENDMODE_BLEND)
+      item.imgsurf = imgsurf
+    else :
+      print("Couldn't load " + imgname)
+      return False
+  return True
+
+build_big = [items.static[name][which].idle
+  for name in sizemap if sizemap[name] == "big"
+  for which in items.static[name] if which != "new"
+  if fetch_image(items.static[name][which].idle)
+  ]
+
+build_small = [items.static[name][which].idle
+  for name in sizemap if sizemap[name] == "small"
+  for which in items.static[name] if which != "new"
+  if fetch_image(items.static[name][which].idle)
+  ]
+
+#place_images(overlays.big, build_big)
+place_images(overlays.small, build_small)
+redraw()
+
+ev = sdl2.SDL_Event()
+stop = False
+while not stop :
+  while sdl2.SDL_PollEvent(ctypes.byref(ev)) != 0:
+    if ev.type == sdl2.SDL_QUIT :
+      stop = True
+    elif ev.type == sdl2.SDL_KEYDOWN and ev.key.keysym.sym == sdl2.SDLK_q :
+      stop = True
+  sdl2.SDL_UpdateWindowSurface(main_window)
+
+sdl2.sdlimage.IMG_Quit()
+sdl2.SDL_FreeSurface(mainw_surf)
+sdl2.SDL_DestroyWindow(main_window)
 
