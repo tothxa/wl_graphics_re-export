@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
 
+# Dependencies:
+# - lupa (lua python module)
+# - pgmagick (graphicsmagick python module)
+# - PySDL2 (SDL2 python module)
+# - yad (yet another dialog command line tool)
+
 import io
 import os
 import re
+import subprocess
 import sys
+from statistics import mean
 
 import lupa
 import pgmagick
@@ -95,7 +103,7 @@ lua.execute('''
   sizemap = {}
 
   descriptions = {}
-  items = { static = {}, moving = {}, ships = {}, unknown = {} }
+  items = {}
 
   function descriptions:new_static(def)
     sz = def.size
@@ -105,20 +113,20 @@ lua.execute('''
     if sz == "port" then
       sz = "big"
     end
-    items.static[def.name] = { old = parse_anims(def) }
+    items[def.name] = { old = parse_anims(def) }
     sizemap[def.name] = sz
     typemap[def.name] = "static"
   end
 
   moving_items = {}
   function descriptions:new_moving(def)
-    items.moving[def.name] = { old = parse_anims(def) }
+    items[def.name] = { old = parse_anims(def) }
     typemap[def.name] = "moving"
   end
   
   ships = {}
   function descriptions:new_ship_type(def)
-    items.ships[def.name] = { old = parse_anims(def) }
+    items[def.name] = { old = parse_anims(def) }
     typemap[def.name] = "ship"
   end
 
@@ -155,18 +163,15 @@ typemap = lua.eval("typemap")
 sizemap = lua.eval("sizemap")
 
 def get_anim(name, which, anim) :
-  t = typemap[name]
-  if t == None :
+  if not name in items :
     return None
-  if not t in items :
+  if not which in items[name] :
     return None
-  if not name in items[t] :
+  if which == "new" :
+    return get_new(name, anim)
+  if not anim in items[name][which] :
     return None
-  if not which in items[t][name] :
-    return None
-  if not anim in items[t][name][which] :
-    return None
-  return items[t][name][which][anim]
+  return items[name][which][anim]
 
 def get_new(name, anim) :
   # we need this because we don't want to use different hotspots for the
@@ -175,41 +180,47 @@ def get_new(name, anim) :
   if a == None :
     return None
 
-  rv = a.copy()
+  rv = lua.table_from(a)
   # this is safe, because .new is always created with .pre
-  rv.hot_x = items[typemap[name]].new.hot_x
-  rv.hot_y = items[typemap[name]].new.hot_y
+  # hot_x and hot_y are always set together
+  if items[name].new.hot_x :
+    rv.hot_x = items[name].new.hot_x
+    rv.hot_y = items[name].new.hot_y
+  else :
+    rv.hot_x = round(mean([anim.hot_x for anim in items[name].pre.values()]))
+    rv.hot_y = round(mean([anim.hot_y for anim in items[name].pre.values()]))
   return rv
 
-def has_new(name) :
-  t = typemap[name]
-  if t == None :
+def has_key_new(name) :
+  if not name in items :
     return False
-  if not name in items[t] :
-    return False
-  return "new" in items[t][name]
+  return "new" in items[name]
 
-def set_new_hotspot(name, hotspot) :
+changed = set()
+
+def change_new_hotspot(name, hot_x, hot_y) :
   # this should only be called when we already have an entry for the new
   # spritesheet
-  items[typemap[name]][name].new = hotspot
+  if items[name].new.hot_x != hot_x or items[name].new.hot_y != hot_y :
+    items[name].new.hot_x = hot_x
+    items[name].new.hot_y = hot_y
+    changed.add(name)
 
 def store_new(name, anim, imgprops_pre, hotspot_new) :
-  t = typemap[name]
-  if t == None :
-    t = "unknown"
-  if not name in items[t] :
-    items[t][name] = lua.table()
+  if not name in typemap :
+    typemap[name] = "unknown"
+  if not name in items :
+    items[name] = lua.table()
 
-  if not "pre" in items[t][name] :
-    items[t][name].pre = lua.table()
+  if not "pre" in items[name] :
+    items[name].pre = lua.table()
   # must create pre[anim]
-  items[t][name].pre[anim] = imgprops_pre
+  items[name].pre[anim] = imgprops_pre
 
-  if not "new" in items[t][name] :
+  if not "new" in items[name] :
     # new ones shouldn't have different hotspots, first call stores it,
     # others give the same numbers, so we just ignore it
-    items[t][name].new = hotspot_new
+    items[name].new = hotspot_new
 
 def pre_hot_1(old_size, old_off, old_hot, new_size, new_off) :
   return new_off + (old_hot - old_off) * new_size / old_size
@@ -229,7 +240,6 @@ def new_hotspot_init(dir, fn) :
 
   pre = size_and_crop_full(dir + "/" + fn, cols, rows)
 
-  # old = lua.eval('get_anim("{}", "{}")'.format(item, anim))
   old = get_anim(item, "old", anim)
   if not old :
     print("Animation not found: ", item, anim, file = sys.stderr)
@@ -243,7 +253,7 @@ def new_hotspot_init(dir, fn) :
     # print("{:s} {:s} {:1.0f},{:1.0f}".format(item, anim, hot_x, hot_y))
 
   new = None
-  if not has_new(item) :
+  if not has_key_new(item) :
     hotspotfile = dir + "/" + fnmatch.group(1) + ".hotspot"
     # file_ok means we can safely create it or replace first line with hotspot value
     new = lua.table(hsfile = hotspotfile, hot_x = None, hot_y = None, file_ok = True)
@@ -289,7 +299,7 @@ margin = 15
 trianglew = 64
 triangleh = 32
 
-background = sdl2.SDL_CreateRGBSurface(0, canvas_w, canvas_h, 24, 0, 0, 0, 0)
+background = sdl2.SDL_CreateRGBSurface(0, canvas_w, canvas_h, 32, 0, 0, 0, 0)
 if not background :
   print("Background surface creation failed.")
   sys.exit(1)
@@ -300,13 +310,15 @@ if not background_renderer :
   sys.exit(1)
 
 sdl2.SDL_SetRenderDrawColor(background_renderer, 0, 120, 0, 255)
-sdl2.SDL_RenderFillRect(background_renderer, None)
+sdl2.SDL_RenderClear(background_renderer)
 
 sdl2.SDL_SetRenderDrawColor(background_renderer, 0, 0, 0, 255)
-for even in (0, triangleh) :
+for even in [0, triangleh] :
   for y in range(margin + even, canvas_h - margin, trianglew) :
     for x in range(margin + even, canvas_w - margin, trianglew) :
       sdl2.SDL_RenderDrawPoint(background_renderer, x, y)
+
+sdl2.SDL_DestroyRenderer(background_renderer)
 
 if sdl2.sdlimage.IMG_Init(sdl2.sdlimage.IMG_INIT_PNG) < 0 :
   print("SDL Image initialisation failed.")
@@ -353,7 +365,7 @@ overlays = lua.eval('''
       imgsurf = python.eval('load_overlay_image("road_small.png")')
     },
     big =
-    { hotspot = {x = 141, y = 167},
+    { hotspot = {x = 141, y = 141},
       step = {x = 256, y = 192},
       imgsurf = python.eval('load_overlay_image("road_big.png")')
     },
@@ -368,7 +380,7 @@ for ovl in ["small", "big"] :
 
 # Intermediate SDL surface where we do all the drawing. Will be blitted to
 # main window with possibility to scale and pan.
-canvas = sdl2.SDL_CreateRGBSurface(0, canvas_w, canvas_h, 24, 0, 0, 0, 0)
+canvas = sdl2.SDL_CreateRGBSurface(0, canvas_w, canvas_h, 32, 0, 0, 0, 0)
 if not canvas :
   print("Canvas surface creation failed.")
   sys.exit(1)
@@ -397,6 +409,69 @@ def place_images(base_overlay, images) :
 # print(overlays.small.poslist)
 # print(overlays.big.poslist)
 
+def fetch_image(item) :
+  if not item.imgsurf:
+    imgsurf = sdl2.sdlimage.IMG_Load(item.file.encode())
+    if imgsurf :
+      sdl2.SDL_SetSurfaceBlendMode(imgsurf, sdl2.SDL_BLENDMODE_BLEND)
+      item.imgsurf = imgsurf
+    else :
+      print("Couldn't load " + imgname)
+      return False
+  return True
+
+
+### for testing
+build_big = [
+  items[name][which].idle
+  for name in sizemap if sizemap[name] == "big"
+  for which in items[name] if which != "new"
+  if fetch_image(items[name][which].idle)
+  ]
+
+build_small = [
+  items[name][which].idle
+  for name in sizemap if sizemap[name] == "small"
+  for which in items[name] if which != "new"
+  if fetch_image(items[name][which].idle)
+  ]
+
+#place_images(overlays.big, build_big)
+#place_images(overlays.small, build_small)
+# empty background:
+#place_images(overlays.big, [])
+
+
+###### dialogs ######
+
+def listselect(list, title, text) :
+  opts = []
+  if title :
+    opts = ["--title", title]
+  if text :
+    opts += ["--text", text]
+  result = subprocess.run(["yad", "--list", "--title", "Please select",
+    "--height", str(min(len(list) * 20, 600)), "--column", " ",
+    "--separator="] + opts + list, capture_output = True, text = True)
+  if result.returncode != 0 or result.stdout == "" :
+    return None
+  return result.stdout.splitlines()[0]
+
+new_buildings = [name for name in items if typemap[name] == "static" and "pre" in items[name]]
+
+def select_building() :
+  building = listselect(new_buildings, "Select building",
+    "Please select which building's hotspot you would like to edit")
+  # print(building, list(overlays[sizemap[building]]), [list(get_anim(building, which, "idle")) for which in ["new", "old", "pre"]])
+  # TODO: fetch_image should be called here. for now it only works because
+  #       we fetched all of them for build_big and build_small, which should
+  #       be removed eventually
+  place_images(overlays[sizemap[building]],
+    [get_anim(building, which, "idle") for which in ["new", "old", "pre"]])
+
+# let's select one before initialising main window
+select_building()
+
 
 ############################## display window ##############################
 
@@ -414,31 +489,6 @@ def redraw() :
   sdl2.SDL_BlitSurface(canvas, None, mainw_surf, None)
   sdl2.SDL_UpdateWindowSurface(main_window)
 
-def fetch_image(item) :
-  if not item.imgsurf:
-    imgsurf = sdl2.sdlimage.IMG_Load(item.file.encode())
-    if imgsurf :
-      sdl2.SDL_SetSurfaceBlendMode(imgsurf, sdl2.SDL_BLENDMODE_BLEND)
-      item.imgsurf = imgsurf
-    else :
-      print("Couldn't load " + imgname)
-      return False
-  return True
-
-build_big = [items.static[name][which].idle
-  for name in sizemap if sizemap[name] == "big"
-  for which in items.static[name] if which != "new"
-  if fetch_image(items.static[name][which].idle)
-  ]
-
-build_small = [items.static[name][which].idle
-  for name in sizemap if sizemap[name] == "small"
-  for which in items.static[name] if which != "new"
-  if fetch_image(items.static[name][which].idle)
-  ]
-
-#place_images(overlays.big, build_big)
-place_images(overlays.small, build_small)
 redraw()
 
 ev = sdl2.SDL_Event()
@@ -447,8 +497,12 @@ while not stop :
   while sdl2.SDL_PollEvent(ctypes.byref(ev)) != 0:
     if ev.type == sdl2.SDL_QUIT :
       stop = True
-    elif ev.type == sdl2.SDL_KEYDOWN and ev.key.keysym.sym == sdl2.SDLK_q :
-      stop = True
+    elif ev.type == sdl2.SDL_KEYDOWN :
+      if ev.key.keysym.sym == sdl2.SDLK_q :
+        stop = True
+      if ev.key.keysym.sym == sdl2.SDLK_s :
+        select_building()
+        redraw()
   sdl2.SDL_UpdateWindowSurface(main_window)
 
 sdl2.sdlimage.IMG_Quit()
