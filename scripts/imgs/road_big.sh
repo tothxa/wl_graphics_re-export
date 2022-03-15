@@ -1,0 +1,24 @@
+convert -size 250x190 xc:transparent \
+  -stroke gray -strokewidth 10 \
+    -draw 'path M76,76,L204,76' \
+    -draw 'path M44,172,L172,172' \
+  -fill none -strokewidth 8.4 \
+    -draw 'path M140,140,L172,172' \
+    -draw 'path M76,76,L12,140' \
+    -draw 'path M12,140,L44,172' \
+    -draw 'path M204,76,L236,108' \
+    -draw 'path M236,108,L172,172' \
+  -fill '#FF000080' \
+    -draw 'point 140,140' \
+  -fill transparent \
+    -draw 'point 172,172' \
+    -draw 'point 204,140' \
+    -draw 'point 236,108' \
+    -draw 'point 204,76' \
+    -draw 'point 140,76' \
+    -draw 'point 76,76' \
+    -draw 'point 44,108' \
+    -draw 'point 12,140' \
+    -draw 'point 44,172' \
+    -draw 'point 108,172' \
+  /tmp/road_big.png
