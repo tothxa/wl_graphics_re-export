@@ -6,204 +6,19 @@
 # - PySDL2 (SDL2 python module)
 # - yad (yet another dialog command line tool)
 
-import io
 import os
-import re
 import subprocess
 import sys
-from statistics import mean
 
-import lupa
-import pgmagick
+# parse arguments:
+from py_lib.cmdline import luapaths, newpaths
 
-##### Dialogs #####
-
-def listselect(list, header, text, title = "Please select") :
-  opts = []
-  if text :
-    opts += ["--text", text]
-  result = subprocess.run(["yad", "--list", "--title", title,
-    "--height", str(min(len(list) * 20, 600)), "--column", header,
-    "--separator="] + opts + list, capture_output = True, text = True)
-  if result.returncode != 0 or result.stdout == "" :
-    return None
-  return result.stdout.splitlines()[0]
-
-def warning(text) :
-  subprocess.run(["yad", "--image=dialog-warning", "--title=Warning",
-    "--button=Close!window-close", "--buttons-layout=center", "--text", text],
-    capture_output = False)
-
-def error(text) :
-  subprocess.run(["yad", "--image=dialog-error", "--title=Error",
-    "--button=Close!window-close", "--buttons-layout=center", "--text", text],
-    capture_output = False)
-
-
-###################
-
-#
-# TODO: use argparse, use dialogs for specifying directories when no command
-# line arguments are given
-#
-
-argc = len(sys.argv) - 1
-if argc < 2 or argc > 3 :
-  print("Usage: " + sys.argv[0] + " <widelands_datadir> <new_images_dir> [<tribename_prefix>_]")
-  sys.exit(1)
-
-pref = ""
-if argc == 3 :
-  pref = sys.argv[3]
-
-
-###################
-
-lua = lupa.LuaRuntime(unpack_returned_tuples=False)
-
-def size_and_crop_full(imgf, cols, rows) :
-  try :
-    img = pgmagick.Image(imgf)
-  except Exception as ex :
-    print("Couldn't open ", imgf, file = sys.stderr)
-    print(ex, file = sys.stderr)
-    return None
-  if cols * rows > 1 :
-    w = img.columns()
-    h = img.rows()
-    if w % cols != 0 or h % rows != 0 :
-      raise AssertionError
-    cropgeom = pgmagick.Geometry(w // cols, h // rows, 0, 0)
-    img.crop(cropgeom)
-  bb = img.boundingBox()
-  return lua.table(file = imgf, x = bb.width(), y = bb.height(), xoff = bb.xOff(), yoff = bb.yOff())
-
-def size_and_crop_base(basename, cols, rows) :
-  for ext in ("_1.png", "_00.png", ".png") :
-    imgf = basename + ext
-    if os.access(imgf, os.F_OK) :
-      return size_and_crop_full(imgf, cols, rows)
-  print("No image file found for basename: ", basename, file = sys.stderr)
-  return None
-
-
-#################### lua code for reading old definitions ####################
-
-lua.execute('''
-  function ignore() end
-  pop_textdomain = ignore
-  push_textdomain = ignore
-  pgettext = ignore
-  include = ignore  -- used by Amazon and Frisian immovables only (rare trees and berry bushes)
-
-  function _(arg)
-    return arg
-  end
-
-  path = {}
-  function path.dirname()
-    return python.eval("dir") .. "/"
-  end
-  path.list_files = ignore  -- used by soldiers to get level icons
-
-  size_and_crop_base=python.eval("size_and_crop_base")
-
-  function anim_sprsh_common(anim, name, animdir, cols, rows)
-    ret = {}
-    if anim.directory then
-      animdir = anim.directory
-    end
-    if string.sub(animdir, -1) ~= "/" then
-      animdir = animdir .. "/"
-    end
-    if anim.basename then
-      name = anim.basename
-    end
-    dirs = { "" }
-    if anim.directional then
-      dirs = { "_se", "_e", "_ne", "_nw", "_w", "_sw" }
-    end
-    for i, d in ipairs(dirs) do
-      n_d = name .. d
-      box = size_and_crop_base(animdir .. n_d, cols, rows)
-      if box then
-        box.hot_x = anim.hotspot[1]
-        box.hot_y = anim.hotspot[2]
-        ret[n_d] = box
-      end
-    end
-    return ret
-  end
-
-  function parse_anims(def)
-    imgs = {}
-    if def.animations then
-      for name, anim in pairs(def.animations) do
-        for k, v in pairs(anim_sprsh_common(anim, name, def.animation_directory, 1, 1)) do
-          imgs[k] = v
-        end
-      end
-    end
-    if def.spritesheets then
-      for name, sprsh in pairs(def.spritesheets) do
-        for k, v in pairs(anim_sprsh_common(sprsh, name, def.animation_directory,
-                                            sprsh.columns, sprsh.rows)) do
-          imgs[k] = v
-        end
-      end
-    end
-    return imgs
-  end
-
-  typemap = {}
-  sizemap = {}
-
-  descriptions = {}
-  items = {}
-
-  descriptions.new_resource_type = ignore
-  descriptions.new_terrain_type = ignore
-
-  function descriptions:new_static(def)
-    sz = def.size
-    if sz == "medium" or sz == "mine" or sz == "none" then
-      sz = "small"
-    end
-    if sz == "port" then
-      sz = "big"
-    end
-    items[def.name] = { old = parse_anims(def) }
-    sizemap[def.name] = sz
-    typemap[def.name] = "static"
-  end
-
-  moving_items = {}
-  function descriptions:new_moving(def)
-    items[def.name] = { old = parse_anims(def) }
-    typemap[def.name] = "moving"
-  end
-  
-  ships = {}
-  function descriptions:new_ship_type(def)
-    items[def.name] = { old = parse_anims(def) }
-    typemap[def.name] = "ship"
-  end
-
-  for i, type in ipairs { "constructionsite", "dismantlesite", "militarysite",
-      "productionsite", "trainingsite", "warehouse", "immovable" } do
-    descriptions["new_"..type.."_type"] = descriptions.new_static
-  end
-
-  for i, type in ipairs { "carrier", "ferry", "soldier", "ware", "worker", "critter" } do
-    descriptions["new_"..type.."_type"] = descriptions.new_moving
-  end
-
-  wl = {}
-  function wl.Descriptions()
-    return descriptions
-  end
-''')
-### end of lua definitions ###
+from py_lib.dialogs import listselect, warning, error
+from py_lib.lua_init import lua
+from py_lib.parse_init_luas import items, typemap, sizemap
+from py_lib.query_items import get_anim, get_new, has_key_new
+from py_lib.new_hotspot import new_hotspot_init
+from py_lib.fix_pre import fix_pre_hotspots
 
 
 ###################### read all spritesheet definitions ######################
@@ -215,147 +30,35 @@ def parse_inits(dir) :
     elif entry.name == "init.lua" :
       lua.eval("dofile('" + entry.path + "')")
 
-parse_inits(sys.argv[1])
+if luapaths :
+  for luadir in luapaths :
+    parse_inits(luadir)
+else :
+  warning("No Lua directories were given. Item types cannot be determined, "
+    "hotspots cannot be precalculated.")
+# TODO: dialogs allowing selection of luapaths (while ask : select)
 
-items = lua.eval("items")
-typemap = lua.eval("typemap")
-sizemap = lua.eval("sizemap")
-
-def get_anim(name, which, anim) :
-  if not name in items :
-    return None
-  if not which in items[name] :
-    return None
-  if which == "new" :
-    return get_new(name, anim)
-  if not anim in items[name][which] :
-    return None
-  return items[name][which][anim]
-
-def get_new(name, anim) :
-  # we need this because we don't want to use different hotspots for the
-  # animations of the new spritesheets, but the cropping may be different
-  a = get_anim(name, "pre", anim)
-  if a == None :
-    return None
-  rv = lua.table_from(a)
-  # this is safe, because .new is always created with .pre
-  # hot_x and hot_y are always set together
-  if items[name].new.hot_x :
-    rv.hot_x = items[name].new.hot_x
-    rv.hot_y = items[name].new.hot_y
-    rv.status = "stored"
-  else :
-    rv.hot_x = round(mean([anim.hot_x for anim in items[name].pre.values() if anim.hot_x]))
-    rv.hot_y = round(mean([anim.hot_y for anim in items[name].pre.values() if anim.hot_y]))
-    rv.status = "preliminary"
-  return rv
-
-def has_key_new(name) :
-  if not name in items :
-    return False
-  return "new" in items[name]
-
-def store_new(name, anim, imgprops_pre, hotspot_new) :
-  if not name in typemap :
-    typemap[name] = "unknown"
-  if not name in items :
-    items[name] = lua.table()
-  if not "pre" in items[name] :
-    items[name].pre = lua.table()
-  # must create pre[anim]
-  items[name].pre[anim] = imgprops_pre
-  if not "new" in items[name] :
-    # new ones shouldn't have different hotspots, first call stores it,
-    # others give the same numbers, so we just ignore it
-    items[name].new = hotspot_new
-
-def pre_hot_1(old_size, old_off, old_hot, new_size, new_off) :
-  return new_off + (old_hot - old_off) * new_size / old_size
-
-fnparse = re.compile("([a-z_]+)_(idle|working|build|unoccupied|empty)_([0-9]+)x([0-9]+)_1\.png")
-hsparse = re.compile("^([0-9]*),([0-9]*)$")
-
-def new_hotspot_init(dir, fn) :
-  fnmatch = fnparse.match(fn)
-  if fnmatch == None :
-    return None
-  item = pref + fnmatch.group(1)
-  anim = fnmatch.group(2)
-  cols = int(fnmatch.group(3))
-  rows = int(fnmatch.group(4))
-  pre = size_and_crop_full(os.path.join(dir, fn), cols, rows)
-  old = get_anim(item, "old", anim)
-  if not old :
-    print("Animation not found: ", item, anim, file = sys.stderr)
-    pre.hot_x = None
-    pre.hot_y = None
-  else :
-    hot_x = pre_hot_1(old.x, old.xoff, old.hot_x, pre.x, pre.xoff)
-    hot_y = pre_hot_1(old.y, old.yoff, old.hot_y, pre.y, pre.yoff)
-    pre.hot_x = round(hot_x)
-    pre.hot_y = round(hot_y)
-    # print("{:s} {:s} {:1.0f},{:1.0f}".format(item, anim, hot_x, hot_y))
-  new = None
-  if not has_key_new(item) :
-    hotspotfile = os.path.join(dir, fnmatch.group(1) + ".hotspot")
-    # file_ok means we can safely create it or replace first line with hotspot value
-    new = lua.table(hsfile = hotspotfile, hot_x = None, hot_y = None, file_ok = True)
-    hss = ""
-    if os.access(hotspotfile, os.F_OK | os.R_OK) :
-      if not os.access(hotspotfile, os.W_OK) :
-        new.file_ok = False
-      hsf = open(hotspotfile)
-      hss = hsf.readline()
-      hsf.close()
-    hsmatch = hsparse.match(hss)
-    if hsmatch :
-      new.hot_x = int(hsmatch.group(1))
-      new.hot_y = int(hsmatch.group(2))
-    elif hss != "" and hss != "\n" :
-      new.file_ok = False
-  store_new(item, anim, pre, new)
-
-def do_new(dir) :
+def do_new(dir, prefix) :
   for entry in os.scandir(dir) :
     if entry.is_dir() :
-      do_new(entry.path)
+      do_new(entry.path, prefix)
     else :
-      new_hotspot_init(dir, entry.name)
+      new_hotspot_init(dir, prefix, entry.name)
 
-do_new(sys.argv[2])
+have_new = False
 
+for k in newpaths :
+  prefix = k
+  dirs = newpaths[k]
+  if dirs :
+    for dir in dirs :
+      have_new = True
+      do_new(dir, prefix)
 
-# We can't do this right on creating pre[anim] entry, because we need all
-# animations first
-def fix_pre_hotspots(name) :
-  missing = []
-  xs = []
-  ys = []
-  for anim in items[name].pre.values() :
-    if anim.hot_x == None or anim.hot_y == None :
-      missing.append(anim)
-    else :
-      xs.append(anim.hot_x)
-      ys.append(anim.hot_y)
-  if len(xs) > 0 and len(ys) > 0 :
-    mx = round(mean(xs))
-    my = round(mean(ys))
-    for anim in missing :
-      anim.hot_x = mx
-      anim.hot_y = my
-  else :
-    # Let's calculate some rough default.
-    # Approximations used:
-    #   We treat it as if it were a building
-    #   "SW" wall goes to 1/3 of width, rest is "SE"
-    #   Door is in the middle of "SE" wall
-    #   Southernmost corner is the bottom of the image
-    #   Tangent of "SE" wall bottom edge angle from X axis in screen projection
-    #     is 0.42
-    for anim in missing :
-      anim.hot_x = anim.xoff + round(anim.x * 2 / 3)
-      anim.hot_y = anim.yoff + anim.y - round(anim.x * 0.42 / 3)
+if not have_new:
+  warning("No directories of new images. Nothing to do!")
+  sys.exit(1)
+# TODO: dialogs allowing selection of newpaths (while ask : while select tribe : select path)
 
 
 ############################# prepare for display #############################
@@ -366,6 +69,7 @@ import sdl2
 import sdl2.sdlimage
 import sdl2.sdlttf
 
+
 if sdl2.SDL_Init(sdl2.SDL_INIT_VIDEO) < 0 :
   error("SDL initialisation failed.")
   sys.exit(1)
@@ -374,7 +78,7 @@ if sdl2.sdlimage.IMG_Init(sdl2.sdlimage.IMG_INIT_PNG) < 0 :
   error("SDL Image initialisation failed.")
   sys.exit(1)
 
-scriptdir = os.path.dirname(sys.argv[0])
+scriptdir = os.path.dirname(__file__)
 
 def load_overlay_image(imgname) :
   imgname_b = os.path.join(scriptdir, "imgs", imgname).encode()
@@ -569,19 +273,21 @@ def fetch_image(item) :
 #place_static(overlays.big, [])
 
 
-new_buildings = sorted([name for name in items if typemap[name] == "static" and "pre" in items[name]])
+new_buildings = sorted(
+  [name for name in items
+    if typemap[name] == "static" and "pre" in items[name]])
 
 # TODO: show status, filter by status
 def select_building() :
-  building = listselect(new_buildings, "Building", "Select building",
-    "Please select which building's hotspot you would like to edit")
+  building = listselect(new_buildings, "Building", title = "Select building",
+    text = "Please select which building's hotspot you would like to edit")
   if not building :
     return None
   anims = sorted(list(items[building].pre))
   if len(anims) > 1 :
-    anim = listselect(anims, "Animation", "Select animation",
-      "Please select which animation of " + building +
-      " you would like to see for editing the hotspot")
+    anim = listselect(anims, "Animation", title = "Select animation",
+      text = "Please select which animation of " + building +
+        " you would like to see for editing the hotspot")
     if not anim :
       return None
   else :
