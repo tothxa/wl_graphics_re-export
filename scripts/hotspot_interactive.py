@@ -62,7 +62,12 @@ if argc == 3 :
 lua = lupa.LuaRuntime(unpack_returned_tuples=False)
 
 def size_and_crop_full(imgf, cols, rows) :
-  img = pgmagick.Image(imgf)
+  try :
+    img = pgmagick.Image(imgf)
+  except Exception as ex :
+    print("Couldn't open ", imgf, file = sys.stderr)
+    print(ex, file = sys.stderr)
+    return None
   if cols * rows > 1 :
     w = img.columns()
     h = img.rows()
@@ -74,10 +79,12 @@ def size_and_crop_full(imgf, cols, rows) :
   return lua.table(file = imgf, x = bb.width(), y = bb.height(), xoff = bb.xOff(), yoff = bb.yOff())
 
 def size_and_crop_base(basename, cols, rows) :
-  imgf = basename + "_1.png"
-  if not os.access(imgf, os.F_OK) :
-    imgf = basename + "_00.png"
-  return size_and_crop_full(imgf, cols, rows)
+  for ext in ("_1.png", "_00.png", ".png") :
+    imgf = basename + ext
+    if os.access(imgf, os.F_OK) :
+      return size_and_crop_full(imgf, cols, rows)
+  print("No image file found for basename: ", basename, file = sys.stderr)
+  return None
 
 
 #################### lua code for reading old definitions ####################
@@ -87,46 +94,61 @@ lua.execute('''
   pop_textdomain = ignore
   push_textdomain = ignore
   pgettext = ignore
-  _ = ignore
   include = ignore  -- used by Amazon and Frisian immovables only (rare trees and berry bushes)
+
+  function _(arg)
+    return arg
+  end
 
   path = {}
   function path.dirname()
-    return python.eval("dir")
+    return python.eval("dir") .. "/"
   end
   path.list_files = ignore  -- used by soldiers to get level icons
 
   size_and_crop_base=python.eval("size_and_crop_base")
 
+  function anim_sprsh_common(anim, name, animdir, cols, rows)
+    ret = {}
+    if anim.directory then
+      animdir = anim.directory
+    end
+    if string.sub(animdir, -1) ~= "/" then
+      animdir = animdir .. "/"
+    end
+    if anim.basename then
+      name = anim.basename
+    end
+    dirs = { "" }
+    if anim.directional then
+      dirs = { "_se", "_e", "_ne", "_nw", "_w", "_sw" }
+    end
+    for i, d in ipairs(dirs) do
+      n_d = name .. d
+      box = size_and_crop_base(animdir .. n_d, cols, rows)
+      if box then
+        box.hot_x = anim.hotspot[1]
+        box.hot_y = anim.hotspot[2]
+        ret[n_d] = box
+      end
+    end
+    return ret
+  end
+
   function parse_anims(def)
     imgs = {}
     if def.animations then
       for name, anim in pairs(def.animations) do
-        if anim.basename then
-          bn = anim.basename
-        else
-          bn = name
-        end
-        if name == "idle" or bn ~= "idle" then  -- there are some where idle is used as placeholder for working
-          box = size_and_crop_base(dirname .. "/" .. bn, 1, 1)
-          box.hot_x = anim.hotspot[1]
-          box.hot_y = anim.hotspot[2]
-          imgs[name] = box
+        for k, v in pairs(anim_sprsh_common(anim, name, def.animation_directory, 1, 1)) do
+          imgs[k] = v
         end
       end
     end
     if def.spritesheets then
       for name, sprsh in pairs(def.spritesheets) do
-        dirs = { "" }
-        if sprsh.directional then
-          dirs = { "_se", "_e", "_ne", "_nw", "_w", "_sw" }
-        end
-        for i, d in ipairs(dirs) do
-          n_d = name .. d
-          box = size_and_crop_base(dirname .. "/" .. n_d, sprsh.columns, sprsh.rows)
-          box.hot_x = sprsh.hotspot[1]
-          box.hot_y = sprsh.hotspot[2]
-          imgs[n_d] = box
+        for k, v in pairs(anim_sprsh_common(sprsh, name, def.animation_directory,
+                                            sprsh.columns, sprsh.rows)) do
+          imgs[k] = v
         end
       end
     end
@@ -138,6 +160,9 @@ lua.execute('''
 
   descriptions = {}
   items = {}
+
+  descriptions.new_resource_type = ignore
+  descriptions.new_terrain_type = ignore
 
   function descriptions:new_static(def)
     sz = def.size
@@ -169,7 +194,7 @@ lua.execute('''
     descriptions["new_"..type.."_type"] = descriptions.new_static
   end
 
-  for i, type in ipairs { "carrier", "ferry", "soldier", "ware", "worker" } do
+  for i, type in ipairs { "carrier", "ferry", "soldier", "ware", "worker", "critter" } do
     descriptions["new_"..type.."_type"] = descriptions.new_moving
   end
 
@@ -509,7 +534,6 @@ def place_static(base_overlay, images) :
             w = 0,
             h = 0)
     sdl2.SDL_BlitSurface(images[i].imgsurf, src, canvas, dst)
-    # TODO: annotate with name, anim name, hotspot coords and status (set/new/changed/can't save)
 
 
 def fetch_image(item) :
@@ -547,14 +571,19 @@ def fetch_image(item) :
 
 new_buildings = sorted([name for name in items if typemap[name] == "static" and "pre" in items[name]])
 
+# TODO: show status, filter by status
 def select_building() :
   building = listselect(new_buildings, "Building", "Select building",
     "Please select which building's hotspot you would like to edit")
+  if not building :
+    return None
   anims = sorted(list(items[building].pre))
   if len(anims) > 1 :
     anim = listselect(anims, "Animation", "Select animation",
       "Please select which animation of " + building +
       " you would like to see for editing the hotspot")
+    if not anim :
+      return None
   else :
     anim = anims[0]
   pre = get_anim(building, "pre", anim)
@@ -582,6 +611,9 @@ def select_building() :
 
 # let's select one before initialising main window
 current_item = select_building()
+if current_item == None :
+  print("Selection cancelled, exiting.", file = sys.stderr)
+  sys.exit(0)
 
 def save_hotspot() :
   if current_item.new.status == "stored" :
@@ -633,6 +665,7 @@ def redraw() :
                           w = zoomrect.w * zoom, h = zoomrect.h * zoom)
   sdl2.SDL_BlitScaled(canvas, zoomrect, canvas, zoomdst)
   sdl2.SDL_BlitSurface(canvas, None, mainw_surf, None)
+  # TODO: can't save, old and pre txts, txt position, help hint
   txtsurf = render_text("{:s}: {:s}  {:d},{:d}  {:s}".format(
     current_item.name, current_item.anim,
     current_item.new.hot_x, current_item.new.hot_y,
@@ -653,8 +686,10 @@ while not stop :
       if ev.key.keysym.sym == sdl2.SDLK_q :
         stop = True
       if ev.key.keysym.sym == sdl2.SDLK_n :
-        current_item = select_building()
-        redraw()
+        new_item = select_building()
+        if new_item :
+          current_item = new_item
+          redraw()
       #if ev.key.keysym.sym == sdl2.SDLK_c :
       #  TODO: current_item = select_anim(current_item.name)
       #  redraw()
