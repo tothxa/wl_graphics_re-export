@@ -5,7 +5,7 @@ import sys
 from py_lib.lua_init import lua
 from py_lib.size_and_crop import size_and_crop_full
 from py_lib.parse_init_luas import items, typemap, sizemap
-from py_lib.query_items import get_anim, get_new, has_key_new
+from py_lib.query_items import get_anim, has_key_new
 
 def store_new(name, anim, imgprops_pre, hotspot_new) :
   if not name in typemap :
