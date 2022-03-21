@@ -1,5 +1,7 @@
 import argparse
 
+from py_lib.utils import flatten
+
 pargs = argparse.ArgumentParser(
   description = "Program to test and edit hotspots of new image files for "
     "Widelands items.",
@@ -59,15 +61,8 @@ newargs.add_argument(
 
 parsed_args = pargs.parse_args()
 
-# I have python 3.7 -- python 3.8 should have action = "extend" to make this
-# unnecessary
-# ll = list of lists
-def flatten(ll) :
-  if ll :
-    return [i for l in ll for i in l]
-  else :
-    return None
-
+# I have python 3.7 -- python 3.8 should have action = "extend" to make
+# flattening unnecessary
 luapaths = flatten(parsed_args.luapaths)
 newpaths = {
   "amazons_": flatten(parsed_args.amzpaths),

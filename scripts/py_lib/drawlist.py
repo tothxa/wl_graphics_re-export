@@ -28,6 +28,12 @@ drawlist = lua.table(
   labels = []
   )
 
+def clear_compare() :
+  drawlist.items_compare = []
+
+def clear_over() :
+  drawlist.items_over = []
+
 def fetch_image(item) :
   if not item.imgsurf:
     imgsurf = sdl2.sdlimage.IMG_Load(item.file.encode())
@@ -53,6 +59,8 @@ def set_base_positions() :
       for i in range(len(drawlist.base_positions) - 1)]
 
 def set_static_drawitems(size, itemlist) :
+  clear_compare()
+  clear_over()
   drawlist.base_overlay = overlays[size]
   for item in itemlist :
     fetch_image(item)
@@ -73,8 +81,9 @@ def set_compare_drawitems(itemlist) :
     sdl2.SDL_FreeSurface(item.imgsurf)
   drawlist.items_compare = []
   for item in itemlist :
-    item_copy = lua.table(
-      file = item.file, hot_x = item.hot_x, hot_y = item.hot_y)
+    item_copy = lua.table()
+    for f in ("file", "x", "y", "xoff", "yoff", "hot_x", "hot_y") :
+      item_copy[f] = item[f]
     if fetch_image(item_copy) :
       sdl2.SDL_SetSurfaceAlphaMod(item_copy.imgsurf, 100)
       drawlist.items_compare.append(item_copy)

@@ -1,5 +1,3 @@
-### TODO: carrier and flag overlays
-
 import os
 import sys
 

@@ -38,3 +38,12 @@ def has_key_new(name) :
     return False
   return "new" in items[name]
 
+def get_status(name) :
+  if not name in items :
+    return "unknown"
+  elif not "pre" in items[name] :
+    return "old"
+  elif items[name].new.hot_x :
+    return "stored"
+  return "preliminary"
+

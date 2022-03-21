@@ -7,7 +7,7 @@ from py_lib.query_items import get_anim, get_new, has_key_new
 from py_lib.fix_pre import fix_pre_hotspots
 from py_lib.drawlist import set_static_drawitems, set_compare_drawitems, \
   set_over_drawitems, set_labels, update_label_0, fetch_image
-from py_lib.select_item import select_new_item
+from py_lib.select_item import select_new_item, select_anim
 
 current_item = lua.table(name = "", anim = "", new = None, labels = [])
 
@@ -65,9 +65,9 @@ while not building_selected :
 set_current(name, anim)
 
 def switch_anim() :
-  # TODO: select and switch anim
-  #       should preserve changed hotspot?
-  pass
+  anim = select_anim(current_item.name, ["pre"])
+  if anim and anim != current_item.anim :
+    set_current(current_item.name, anim)
 
 def change_hotspot(dir, val) :
   current_item.new.status = "changed"
@@ -82,6 +82,18 @@ def reset_hotspot() :
   current_item.new.hot_y = n.hot_y
   current_item.new.status = n.status
   update_new_label()
+
+def pre_hotspot() :
+  p = get_anim(current_item.name, "pre", current_item.anim)
+  if current_item.new.hot_x != p.hot_x :
+    current_item.new.status = "changed"
+    current_item.new.hot_x = p.hot_x
+  if current_item.new.hot_y != p.hot_y :
+    current_item.new.status = "changed"
+    current_item.new.hot_y = p.hot_y
+  # doesn't hurt, even if nothing was actually done
+  if current_item.new.status == "changed" :
+    update_new_label()
 
 def save_hotspot() :
   if current_item.new.status == "stored" :

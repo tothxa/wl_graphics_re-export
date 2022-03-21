@@ -23,7 +23,8 @@ from py_lib.sdl_init import sdl_shutdown
 from py_lib.select_item import select_new_item
 import py_lib.current_item
 from py_lib.current_item import set_current, switch_anim, save_hotspot, \
-  change_hotspot, reset_hotspot
+  change_hotspot, reset_hotspot, pre_hotspot
+from py_lib.compare import set_over, set_compare, toggle_over, toggle_compare
 
 # initialise main window
 from py_lib.display import refresh, redraw, destroy_main_window
@@ -38,36 +39,55 @@ while not stop :
     if ev.type == sdl2.SDL_QUIT :
       stop = True
     elif ev.type == sdl2.SDL_KEYDOWN :
+      #if ev.key.keysym.sym == sdl2.SDLK_h or
+      #   ev.key.keysym.sym == sdl2.SDLK_QUESTION :
+      #  TODO: show help window
       if ev.key.keysym.sym == sdl2.SDLK_q :
         stop = True
-      if ev.key.keysym.sym == sdl2.SDLK_n :
+      elif ev.key.keysym.sym == sdl2.SDLK_n :
         (new_name, new_anim) = select_new_item()
         if new_name :
           set_current(new_name, new_anim)
           redraw()
-      if ev.key.keysym.sym == sdl2.SDLK_c :
+      elif ev.key.keysym.sym == sdl2.SDLK_c :
         switch_anim()
         redraw()
-      #if ev.key.keysym.sym == sdl2.SDLK_h or ev.key.keysym.sym == sdl2.SDLK_QUESTION :
-      #  TODO: show help window
-      if ev.key.keysym.sym == sdl2.SDLK_UP :
+      elif ev.key.keysym.sym == sdl2.SDLK_UP :
         change_hotspot("y", 1)
         redraw()
-      if ev.key.keysym.sym == sdl2.SDLK_DOWN :
+      elif ev.key.keysym.sym == sdl2.SDLK_DOWN :
         change_hotspot("y", -1)
         redraw()
-      if ev.key.keysym.sym == sdl2.SDLK_LEFT :
+      elif ev.key.keysym.sym == sdl2.SDLK_LEFT :
         change_hotspot("x", 1)
         redraw()
-      if ev.key.keysym.sym == sdl2.SDLK_RIGHT :
+      elif ev.key.keysym.sym == sdl2.SDLK_RIGHT :
         change_hotspot("x", -1)
         redraw()
-      if ev.key.keysym.sym == sdl2.SDLK_BACKSPACE or ev.key.keysym.sym == sdl2.SDLK_BACKSPACE :
+      elif ev.key.keysym.sym == sdl2.SDLK_BACKSPACE or \
+           ev.key.keysym.sym == sdl2.SDLK_HOME :
         reset_hotspot()
         redraw()
-      if ev.key.keysym.sym == sdl2.SDLK_s and (ev.key.keysym.mod & sdl2.KMOD_CTRL) != 0 :
+      elif ev.key.keysym.sym == sdl2.SDLK_r and \
+           (ev.key.keysym.mod & sdl2.KMOD_CTRL) != 0 :
+        pre_hotspot()
+        redraw()
+      elif ev.key.keysym.sym == sdl2.SDLK_s and \
+           (ev.key.keysym.mod & sdl2.KMOD_CTRL) != 0 :
         save_hotspot()
         # to update status text
+        redraw()
+      elif ev.key.keysym.sym == sdl2.SDLK_w :
+        if (ev.key.keysym.mod & sdl2.KMOD_SHIFT) != 0 :
+          set_over()
+        else :
+          toggle_over()
+        redraw()
+      elif ev.key.keysym.sym == sdl2.SDLK_o :
+        if (ev.key.keysym.mod & sdl2.KMOD_SHIFT) != 0 :
+          set_compare()
+        else :
+          toggle_compare()
         redraw()
   refresh()
 
