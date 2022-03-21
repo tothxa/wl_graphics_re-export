@@ -46,7 +46,3 @@ if not have_new:
   sys.exit(1)
 # TODO: dialogs allowing selection of newpaths (while ask : while select tribe : select path)
 
-new_buildings = sorted(
-  [name for name in items
-    if typemap[name] == "static" and "pre" in items[name]])
-

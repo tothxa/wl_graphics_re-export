@@ -61,6 +61,7 @@ parsed_args = pargs.parse_args()
 
 # I have python 3.7 -- python 3.8 should have action = "extend" to make this
 # unnecessary
+# ll = list of lists
 def flatten(ll) :
   if ll :
     return [i for l in ll for i in l]

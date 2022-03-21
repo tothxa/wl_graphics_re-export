@@ -11,6 +11,7 @@ import py_lib.sdl_init
 drawlist = lua.table(
   base_overlay = None,
   base_positions = [],
+  zoomrect = sdl2.SDL_Rect(0, 0, 0, 0),
   item_positions = [],
   items = [],
 
@@ -40,9 +41,16 @@ def fetch_image(item) :
 
 def set_base_positions() :
   drawlist.base_positions = drawlist.base_overlay.poslist
-  drawlist.label_positions = [
-    [0, i * drawlist.base_overlay.step.y]
-      for i in range(len(drawlist.base_positions))]
+  drawlist.zoomrect = sdl2.SDL_Rect(
+    x = 0,
+    y = 0,
+    w = drawlist.base_positions[0][0] - drawlist.base_overlay.hotspot.x +
+        drawlist.base_overlay.imgsurf.contents.w,
+    h = drawlist.base_positions[0][1] - drawlist.base_overlay.hotspot.y +
+        drawlist.base_overlay.imgsurf.contents.h)
+  drawlist.label_positions = [[3, 0]] + [
+    [3, drawlist.zoomrect.h + i * drawlist.base_overlay.step.y]
+      for i in range(len(drawlist.base_positions) - 1)]
 
 def set_static_drawitems(size, itemlist) :
   drawlist.base_overlay = overlays[size]
@@ -79,7 +87,14 @@ def set_over_drawitems(itemlist) :
   drawlist.items_over = itemlist
 
 def set_labels(label_list) :
+  for label in drawlist.labels :
+    sdl2.SDL_FreeSurface(label)
   drawlist.labels = []
   for label in label_list :
     drawlist.labels.append(render_text(label))
+
+# Only the first one needs frequent updates
+def update_label_0(new_label) :
+  sdl2.SDL_FreeSurface(drawlist.labels[0])
+  drawlist.labels[0] = render_text(new_label)
 

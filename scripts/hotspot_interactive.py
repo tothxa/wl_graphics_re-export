@@ -6,126 +6,31 @@
 # - PySDL2 (SDL2 python module)
 # - yad (yet another dialog command line tool)
 
-import os
-import subprocess
-import sys
-
-from py_lib.dialogs import listselect, warning, error
-from py_lib.lua_init import lua
-from py_lib.parse_init_luas import items, typemap, sizemap
-from py_lib.query_items import get_anim, get_new, has_key_new
-from py_lib.fix_pre import fix_pre_hotspots
+# initialise parser
+import py_lib.lua_init
+import py_lib.parse_init_luas
 
 # read old definitions and new images
 import py_lib.read_spritesheets
-from py_lib.read_spritesheets import new_buildings
 
-
-############################# prepare for display #############################
-
+# initialise SDL
+import ctypes
 import sdl2
-
 import py_lib.sdl_init
 from py_lib.sdl_init import sdl_shutdown
 
-from py_lib.drawlist import set_static_drawitems, set_compare_drawitems, \
-  set_over_drawitems, set_labels, fetch_image
+# initialise and select current item
+from py_lib.select_item import select_new_item
+import py_lib.current_item
+from py_lib.current_item import set_current, switch_anim, save_hotspot, \
+  change_hotspot, reset_hotspot
 
-# TODO: show status in list, filter by status
-def select_building() :
-  building = listselect(new_buildings, "Building", title = "Select building",
-    text = "Please select which building's hotspot you would like to edit")
-  if not building :
-    return None
-  anims = sorted(list(items[building].pre))
-  if len(anims) > 1 :
-    anim = listselect(anims, "Animation", title = "Select animation",
-      text = "Please select which animation of " + building +
-        " you would like to see for editing the hotspot")
-    if not anim :
-      return None
-  else :
-    anim = anims[0]
-  pre = get_anim(building, "pre", anim)
-  if pre.hot_x == None or pre.hot_y == None :
-    fix_pre_hotspots(building)
-  fetch_image(pre)
-  new = get_new(building, anim)
-  current_item = items[building]
-  old = None
-  if "old" in items[building] :
-    it_old = items[building].old
-    if anim in it_old :
-      old = it_old[anim]
-    elif anim != "idle" and "idle" in it_old :
-      old = it_old.idle
-    else :
-      old = it_old[list(it_old)[0]]
-  # TODO: labels: old and pre hotspots, old anim name if different
-  if old :
-    set_static_drawitems(sizemap[building], [new, old, pre])
-    labels = ["new", "old", "preliminary"]
-  else :
-    set_static_drawitems(sizemap[building], [new, pre])
-    labels = ["new", "preliminary"]
-  return lua.table(name = building, anim = anim, new = new, labels = labels)
-
-def update_label() :
-  # TODO: show if can't save
-  current_item.labels[0] = "{:s}: {:s}  {:d},{:d}  {:s}".format(
-    current_item.name, current_item.anim,
-    current_item.new.hot_x, current_item.new.hot_y,
-    current_item.new.status)
-  set_labels(current_item.labels)
-
-# let's select one before initialising main window
-current_item = select_building()
-if current_item == None :
-  print("Selection cancelled, exiting.", file = sys.stderr)
-  sys.exit(0)
-update_label()
-
-def save_hotspot() :
-  if current_item.new.status == "stored" :
-    return
-  item = items[current_item.name].new
-  hssl = [""]
-  if not item.file_ok :
-    warning("Hotspot can't be saved!")
-    return
-  if os.access(item.hsfile, os.F_OK) :
-    if os.access(item.hsfile, os.R_OK | os.W_OK) :
-      hsf = open(item.hsfile)
-      hssl = hsf.readlines()
-      hsf.close()
-    else :
-      item.file_ok = False
-      current_item.file_ok = False
-      warning("Hotspot can't be saved!")
-      return
-  elif not os.access(os.path.dirname(item.hsfile), os.W_OK | os.X_OK) :
-    item.file_ok = False
-    current_item.file_ok = False
-    warning("Hotspot can't be saved!")
-    return
-  hssl[0] = "{:d},{:d}\n".format(current_item.new.hot_x, current_item.new.hot_y)
-  hsf = open(item.hsfile, "w")
-  for l in hssl :
-    hsf.write(l)
-  hsf.close()
-  item.hot_x = current_item.new.hot_x
-  item.hot_y = current_item.new.hot_y
-  item.status = "stored"
-  current_item.new.status = "stored"
-  update_label()
-
-# Initialise main window
-from py_lib.display import main_window, redraw, destroy_main_window
+# initialise main window
+from py_lib.display import refresh, redraw, destroy_main_window
 
 redraw()
 
-import ctypes
-
+# main event loop
 ev = sdl2.SDL_Event()
 stop = False
 while not stop :
@@ -136,52 +41,37 @@ while not stop :
       if ev.key.keysym.sym == sdl2.SDLK_q :
         stop = True
       if ev.key.keysym.sym == sdl2.SDLK_n :
-        new_item = select_building()
-        if new_item :
-          current_item = new_item
-          update_label()
+        (new_name, new_anim) = select_new_item()
+        if new_name :
+          set_current(new_name, new_anim)
           redraw()
-      #if ev.key.keysym.sym == sdl2.SDLK_c :
-      #  TODO: current_item = select_anim(current_item.name)
-      #  update_label()
-      #  redraw()
+      if ev.key.keysym.sym == sdl2.SDLK_c :
+        switch_anim()
+        redraw()
       #if ev.key.keysym.sym == sdl2.SDLK_h or ev.key.keysym.sym == sdl2.SDLK_QUESTION :
       #  TODO: show help window
       if ev.key.keysym.sym == sdl2.SDLK_UP :
-        current_item.new.status = "changed"
-        current_item.new.hot_y += 1
-        update_label()
+        change_hotspot("y", 1)
         redraw()
       if ev.key.keysym.sym == sdl2.SDLK_DOWN :
-        current_item.new.status = "changed"
-        current_item.new.hot_y -= 1
-        update_label()
+        change_hotspot("y", -1)
         redraw()
       if ev.key.keysym.sym == sdl2.SDLK_LEFT :
-        current_item.new.status = "changed"
-        current_item.new.hot_x += 1
-        update_label()
+        change_hotspot("x", 1)
         redraw()
       if ev.key.keysym.sym == sdl2.SDLK_RIGHT :
-        current_item.new.status = "changed"
-        current_item.new.hot_x -= 1
-        update_label()
+        change_hotspot("x", -1)
         redraw()
       if ev.key.keysym.sym == sdl2.SDLK_BACKSPACE or ev.key.keysym.sym == sdl2.SDLK_BACKSPACE :
-        # 1. It may still be None
-        # 2. current_item.new = get_new() would invalidate the draw() function
-        n = get_new(current_item.name, current_item.anim)
-        current_item.new.hot_x = n.hot_x
-        current_item.new.hot_y = n.hot_y
-        current_item.new.status = n.status
-        update_label()
+        reset_hotspot()
         redraw()
       if ev.key.keysym.sym == sdl2.SDLK_s and (ev.key.keysym.mod & sdl2.KMOD_CTRL) != 0 :
         save_hotspot()
         # to update status text
         redraw()
-  sdl2.SDL_UpdateWindowSurface(main_window)
+  refresh()
 
+# clean up, just to be nice :)
 sdl_shutdown()
 destroy_main_window()
 
