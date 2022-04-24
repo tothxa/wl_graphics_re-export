@@ -1,5 +1,5 @@
-Size at scale 1: 94
-Scale: 0.5     Crop geometry: 44x44+1+1
-Scale: 1     Crop geometry: 88x88+2+2
-Scale: 2     Crop geometry: 176x176+4+4
-Scale: 4     Crop geometry: 352x352+8+8
+Size at scale 1: 84
+Scale: 0.5     Crop geometry: 40x40+1+1
+Scale: 1     Crop geometry: 80x80+2+2
+Scale: 2     Crop geometry: 160x160+4+4
+Scale: 4     Crop geometry: 320x320+8+8
