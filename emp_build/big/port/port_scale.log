@@ -1,0 +1,5 @@
+Size at scale 1: 160
+Scale: 0.5     Crop geometry: 75x75+3+3
+Scale: 1     Crop geometry: 150x150+6+6
+Scale: 2     Crop geometry: 300x300+12+12
+Scale: 4     Crop geometry: 600x600+24+24
