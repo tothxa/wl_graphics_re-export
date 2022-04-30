@@ -16,6 +16,7 @@ render = scene.getRenderingContext()
 render.imageSizeX(imgsize)
 render.imageSizeY(imgsize)
 render.enableOversampling(True)
+render.enableBorderRender(False)
 render.crop = False
 
 camscale_s = os.getenv("SCALE")
