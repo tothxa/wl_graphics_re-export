@@ -1,0 +1,3 @@
+SCALE=7
+needs blender 2.49 for proper shading
+models saved for "Mitch" filter were not committed to git
