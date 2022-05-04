@@ -75,6 +75,7 @@ find_target () {
 }
 
 SUFFIX="_idle_1x1_1.png"
+GLOB='_*[0-9]x[0-9]*_[0-4].*png'
 for i in $(find . -name "*$SUFFIX" ) ; do
   BUILDING="$(basename $i $SUFFIX)"
   SRCDIR="$(dirname $i)"
@@ -84,7 +85,14 @@ for i in $(find . -name "*$SUFFIX" ) ; do
     continue
   fi
 
-  cp -pi "${SRCDIR}/${BUILDING}_"*[0-9]x[0-9]*_[0-4]*.png "$TGTDIR"
+  # this is needed for e.g. coalmine vs. coalmine_deep
+  for PRG in idle build working unoccupied empty ; do
+    BASE="${SRCDIR}/${BUILDING}_${PRG}"
+    if [ "$(echo -n "${BASE}"${GLOB})" != "${BASE}${GLOB}" ]; then
+      echo "Copying files for $BASE"
+      cp -pi "${BASE}"$GLOB "$TGTDIR"
+    fi
+  done
 
   if [ -n "$FINAL_NAME" ]; then
     cd "$TGTDIR"
