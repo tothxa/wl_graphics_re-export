@@ -1,0 +1,2 @@
+-crop 690x690+59+90
+-filter catrom -resize 30x30
