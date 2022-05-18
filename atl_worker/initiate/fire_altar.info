@@ -1,0 +1,1 @@
+convert fire_altar0001.png -crop 72x72+416+484 -filter catrom -resize 12x12 fire_altar_over.png

@@ -1,0 +1,1 @@
+convert initiate_walk_sw_0002.png -filter catrom -resize 36x36 -crop 24x24+1+7 -draw 'image Over 0,12 0,0 fire_altar_over.png' initiate_menu_tmp.png
