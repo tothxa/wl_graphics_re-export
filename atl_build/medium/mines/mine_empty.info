@@ -1,1 +1,0 @@
-convert coalmine0001.png -draw 'image Over 279,563 0,0 mine_empty_sign_atl0001.png' coalmine_e0001.png
