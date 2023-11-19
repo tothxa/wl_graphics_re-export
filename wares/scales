@@ -1,0 +1,14 @@
+scripts/apply_scale.sh bread_.png 18
+scripts/apply_scale.sh pitta_bread_.png 18
+scripts/apply_scale.sh ration_.png 16
+scripts/apply_scale.sh snack_.png 16
+scripts/apply_scale.sh meal_.png 18
+planks 40
+granite 24
+log 30
+coal,iron_ore,gold_ore,quartz,diamond 18
+gold 26
+marble 22
+marble_column 26
+cloth 16
+blackroot 20

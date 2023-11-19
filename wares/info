@@ -1,0 +1,1 @@
+convert bread.png -crop 120x120+15+15 -filter catrom -scale 24x24 bread_menu.png
