@@ -1,0 +1,2 @@
+composite -compose CopyOpacity fur_mask.png fur.png fur_masked.png
+convert fur_masked.png -crop 160x160+20+20 -filter catrom -scale 24x24 fur_menu.png
