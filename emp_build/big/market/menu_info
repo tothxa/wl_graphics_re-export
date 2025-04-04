@@ -1,0 +1,1 @@
+convert empire_market0001.png -filter catrom -scale 50x50 -crop 24x24+11+9 empire_market_menu.png
